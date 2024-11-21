@@ -19,12 +19,13 @@ import (
 const max_msg_len = 2000
 
 var optEvtChan string
+var optEvtProv string
 var optTime int
 
 func Usage() {
 	exe := filepath.Base(os.Args[0])
 	fmt.Printf("tail windows event log\n")
-	fmt.Printf("Usage: %s -n <name> -t <time (optional)>\n\n", exe)
+	fmt.Printf("Usage: %s -n <name> -p <provider> -t <time (optional)>\n\n", exe)
 	flag.PrintDefaults()
 }
 
@@ -47,6 +48,7 @@ func SanitizeName(name string, limit int) string {
 func main() {
 	flag.Usage = Usage
 
+	flag.StringVar(&optEvtProv, "p", "", `name of the windows event log provider (i.e. Application name").`)
 	flag.StringVar(&optEvtChan, "n", "Application", `name of the windows event log channel (i.e. System, Application, ... - see powershell "get-winevent -listlog *").`)
 	flag.IntVar(&optTime, "t", 1440, "display recent events from last N minutes (defaults to 24 hours)")
 	flag.Parse()
@@ -65,7 +67,9 @@ func main() {
 	for {
 		select {
 		case evt := <-watcher.Event():
-			fmt.Println(evt.Created, evt.ComputerName, evt.Channel, evt.EventId, evt.Opcode, evt.LevelText, evt.ProviderName, SanitizeName(strings.TrimSpace(evt.Msg), max_msg_len))
+			if optEvtChan != "Application" || optEvtProv == evt.ProviderName {
+				fmt.Println(evt.Created, evt.ComputerName, evt.Channel, evt.EventId, evt.Opcode, evt.LevelText, evt.ProviderName, SanitizeName(strings.TrimSpace(evt.Msg), max_msg_len))
+			}
 		case err := <-watcher.Error():
 			fmt.Printf("Error: %v\n\n", err)
 		case <-time.After(1 * time.Second):
